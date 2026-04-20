@@ -11,7 +11,7 @@ services:
     container_name: kestra_postgres
     restart: always
     volumes:
-      - kestra_postgres_data:/var/lib/postgresql/data
+      - kestra_postgres_data:/var/lib/postgresql
     environment:
       POSTGRES_DB: kestra
       POSTGRES_USER: kestra
