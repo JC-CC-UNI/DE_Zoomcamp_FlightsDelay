@@ -1,0 +1,265 @@
+id: flights_pipeline
+namespace: zoomcamp
+
+description: Flights pipeline (Snowflake COPY + dbt optimized)
+
+tasks:
+
+# 1️⃣ LOAD RAW DATA INTO SNOWFLAKE
+- id: snowflake_copy_raw
+  type: io.kestra.plugin.jdbc.snowflake.Query
+
+  url: jdbc:snowflake://ub53849.sa-east-1.aws.snowflakecomputing.com
+  username: SERVICE_USER_DBT
+  privateKey: "{{ kv('SNOWFLAKE_PRIVATE_KEY') }}"
+
+  role: SYSADMIN
+  warehouse: COMPUTE_WH
+  database: FLIGHTS_DB
+  schema: RAW
+
+  sql: |
+    COPY INTO flights_delay
+    FROM @flights_gcs_stage
+    FILE_FORMAT = (FORMAT_NAME = flights_csv_format)
+    ON_ERROR = 'CONTINUE';
+
+
+# 2️⃣ RUN DBT TRANSFORMATIONS
+- id: dbt_run
+  type: io.kestra.plugin.scripts.shell.Commands
+  containerImage: ghcr.io/dbt-labs/dbt-snowflake:latest
+
+  commands:
+    - set -e
+
+    # Clone repo (shallow = faster)
+    - git clone --depth 1 https://github.com/JC-CC-UNI/DE_Zoomcamp_FlightsDelay.git
+    - cd DE_Zoomcamp_FlightsDelay/models_dbt
+
+    # Write private key
+    - mkdir -p /tmp/keys
+    - |
+      cat <<EOF > /tmp/keys/rsa_key.p8
+      {{ kv('SNOWFLAKE_PRIVATE_KEY') }}
+      EOF
+    - chmod 600 /tmp/keys/rsa_key.p8
+
+    # Create dbt profile
+    - mkdir -p ~/.dbt
+    - |
+      cat <<EOF > ~/.dbt/profiles.yml
+      qsi_snowflake:
+        target: dev
+        outputs:
+          dev:
+            type: snowflake
+            account: ub53849.sa-east-1.aws
+            user: SERVICE_USER_DBT
+            role: SYSADMIN
+            database: FLIGHTS_DB
+            warehouse: COMPUTE_WH
+            schema: STAGING
+            threads: 4
+            authenticator: snowflake_jwt
+            private_key_path: /tmp/keys/rsa_key.p8
+      EOF
+
+    # ✅ IMPORTANT: force dbt to use this profile
+    - dbt debug --profiles-dir ~/.dbt
+
+    # fast testing (only one model)
+    - dbt run --profiles-dir ~/.dbt
+  
+# 3️⃣ EXPORT FACT TABLE TO GCS
+- id: export_fct
+  type: io.kestra.plugin.jdbc.snowflake.Query
+
+  url: jdbc:snowflake://ub53849.sa-east-1.aws.snowflakecomputing.com
+  username: SERVICE_USER_DBT
+  privateKey: "{{ kv('SNOWFLAKE_PRIVATE_KEY') }}"
+
+  role: SYSADMIN
+  warehouse: COMPUTE_WH
+  database: FLIGHTS_DB
+  schema: MART
+
+  sql: |
+    COPY INTO @FLIGHTS_DB.MART.fct_flights_gcs_stage/fct_flight_delays_{{ execution.id }}/
+    FROM (
+        SELECT *
+        FROM FLIGHTS_DB.MART.FCT_FLIGHT_DELAYS
+    )
+    FILE_FORMAT = (
+        TYPE = CSV
+        FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+        COMPRESSION = NONE
+    )
+    HEADER = TRUE
+    MAX_FILE_SIZE = 50000000;
+
+# 5️⃣ EXPORT DIM TABLE → GCS
+- id: export_dim
+  type: io.kestra.plugin.jdbc.snowflake.Query
+
+  url: jdbc:snowflake://ub53849.sa-east-1.aws.snowflakecomputing.com
+  username: SERVICE_USER_DBT
+  privateKey: "{{ kv('SNOWFLAKE_PRIVATE_KEY') }}"
+
+  role: SYSADMIN
+  warehouse: COMPUTE_WH
+  database: FLIGHTS_DB
+  schema: MART
+
+  sql: |
+    COPY INTO @FLIGHTS_DB.MART.dim_delay_causes_gcp_stage/dim_delay_causes_{{ execution.id }}/
+    FROM (
+        SELECT *
+        FROM FLIGHTS_DB.MART.DIM_DELAY_CAUSES
+    )
+    FILE_FORMAT = (
+        TYPE = CSV
+        FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+        COMPRESSION = NONE
+    )
+    HEADER = TRUE
+    MAX_FILE_SIZE = 50000000;
+
+# 4️⃣ LOAD FACT TABLE INTO BIGQUERY
+# 5️⃣ LOAD FACT TABLE INTO BIGQUERY (FIXED - BASE64 KEY)
+- id: load_bq_fct
+  type: io.kestra.plugin.scripts.python.Commands
+
+  containerImage: python:3.11-slim
+
+  commands:
+    - pip install google-cloud-bigquery google-cloud-storage
+
+    # write GCP credentials (BASE64 SAFE METHOD)
+    # write GCP credentials safely
+    - mkdir -p /workspace/keys
+    - |
+      echo "{{ kv('GCP_SERVICE_ACCOUNT_JSON_B64') }}" | base64 -d > /workspace/keys/gcp-key.json
+
+    # validate JSON immediately
+    - python -c "import json; json.load(open('/workspace/keys/gcp-key.json')); print('GCP JSON OK')"
+
+    # create script
+    - |
+      cat <<EOF > load_to_bigquery.py
+      from google.cloud import bigquery
+      import os
+      import argparse
+
+      os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/workspace/keys/gcp-key.json"
+
+      PROJECT_ID = "kestra-sandbox-487804"
+      DATASET_ID = "flights_dataset"
+
+      def load_table(table_id, gcs_uri):
+          client = bigquery.Client(project=PROJECT_ID)
+
+          table_ref = f"{PROJECT_ID}.{DATASET_ID}.{table_id}"
+
+          job_config = bigquery.LoadJobConfig(
+              source_format=bigquery.SourceFormat.CSV,
+              skip_leading_rows=1,
+              autodetect=True,
+              write_disposition="WRITE_TRUNCATE",
+          )
+
+          print(f"Loading {table_id} from {gcs_uri}...")
+
+          load_job = client.load_table_from_uri(
+              gcs_uri,
+              table_ref,
+              job_config=job_config,
+          )
+
+          load_job.result()
+          print(f"Loaded {table_id}!")
+
+      if __name__ == "__main__":
+          parser = argparse.ArgumentParser()
+          parser.add_argument("--table", required=True)
+          parser.add_argument("--uri", required=True)
+
+          args = parser.parse_args()
+
+          load_table(args.table, args.uri)
+      EOF
+
+    # run load
+    - |
+      python load_to_bigquery.py \
+        --table fct_flight_delays \
+        --uri "gs://de-zoomcamp-flightsdelay-data/flights/mart/fct_flights_gcs_stage/fct_flight_delays_{{ execution.id }}/*.csv"
+
+
+# LOAD DIM TABLE INTO BIGQUERY
+- id: load_bq_dim
+  type: io.kestra.plugin.scripts.python.Commands
+
+  containerImage: python:3.11-slim
+
+  commands:
+    - pip install google-cloud-bigquery google-cloud-storage
+
+    # write GCP credentials safely (same as FACT step)
+    - mkdir -p /workspace/keys
+    - |
+      echo "{{ kv('GCP_SERVICE_ACCOUNT_JSON_B64') }}" | base64 -d > /workspace/keys/gcp-key.json
+
+    # validate JSON
+    - python -c "import json; json.load(open('/workspace/keys/gcp-key.json')); print('GCP JSON OK')"
+
+    # create loader script
+    - |
+      cat <<EOF > load_to_bigquery_dim.py
+      from google.cloud import bigquery
+      import os
+      import argparse
+
+      os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/workspace/keys/gcp-key.json"
+
+      PROJECT_ID = "kestra-sandbox-487804"
+      DATASET_ID = "flights_dataset"
+
+      def load_table(table_id, gcs_uri):
+          client = bigquery.Client(project=PROJECT_ID)
+
+          table_ref = f"{PROJECT_ID}.{DATASET_ID}.{table_id}"
+
+          job_config = bigquery.LoadJobConfig(
+              source_format=bigquery.SourceFormat.CSV,
+              skip_leading_rows=1,
+              autodetect=True,
+              write_disposition="WRITE_TRUNCATE",
+          )
+
+          print(f"Loading {table_id} from {gcs_uri}...")
+
+          load_job = client.load_table_from_uri(
+              gcs_uri,
+              table_ref,
+              job_config=job_config,
+          )
+
+          load_job.result()
+          print(f"Loaded {table_id}!")
+
+      if __name__ == "__main__":
+          parser = argparse.ArgumentParser()
+          parser.add_argument("--table", required=True)
+          parser.add_argument("--uri", required=True)
+
+          args = parser.parse_args()
+
+          load_table(args.table, args.uri)
+      EOF
+
+    # run DIM load
+    - |
+      python load_to_bigquery_dim.py \
+        --table dim_delay_causes \
+        --uri "gs://de-zoomcamp-flightsdelay-data/flights/mart/dim_delay_causes_gcp_stage/dim_delay_causes_{{ execution.id }}/*.csv"
