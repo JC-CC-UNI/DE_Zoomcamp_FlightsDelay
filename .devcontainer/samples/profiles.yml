@@ -1,0 +1,15 @@
+qsi_snowflake:
+    target: snowflake-db
+    outputs:
+      snowflake-db:
+        type: snowflake
+        account: "{{ env_var('DBT_SF_ACCOUNT') }}"
+        user: "{{ env_var('DBT_SF_USER') }}"
+        ##authenticator: externalbrowser
+        private_key_path: "{{ env_var('DBT_SF_KEY_PATH') }}"
+        role: "{{ env_var('DBT_SF_ROLE') }}"
+        database: "{{ env_var('DBT_SF_DATABASE') }}"
+        warehouse: "{{ env_var('DBT_SF_WAREHOUSE') }}"
+        schema: "{{ env_var('DBT_SF_SCHEMA') }}"
+        threads: 32
+        client_session_keep_alive: False

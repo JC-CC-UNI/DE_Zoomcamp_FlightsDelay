@@ -1,0 +1,10 @@
+dbt-core==1.10.13
+dbt-adapters==1.17.3
+dbt-extractor==0.5.1
+dbt-semantic-interfaces==0.9.0
+dbt-snowflake==1.10.2
+google-cloud-storage
+requests
+pandas
+kaggle
+google-cloud-bigquery

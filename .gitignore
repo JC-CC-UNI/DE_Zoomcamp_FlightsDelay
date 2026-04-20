@@ -1,0 +1,14 @@
+# Python env
+.data-eng-env/
+venv/
+
+# dbt
+models_dbt/target/
+dbt_packages/
+
+# Secrets
+keys/
+logs/
+*.p8
+*.key
+.env
