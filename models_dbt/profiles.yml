@@ -1,0 +1,13 @@
+zoomcamp:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: ub53849.sa-east-1.aws
+      user: SERVICE_USER_DBT
+      role: SYSADMIN
+      database: FLIGHTS_DB
+      warehouse: COMPUTE_WH
+      schema: STAGING
+
+      private_key: "{{ env_var('DBT_PRIVATE_KEY') }}"

@@ -1,5 +1,5 @@
 # Python env
-.data-eng-env/
+.data_eng_env/
 venv/
 
 # dbt
