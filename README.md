@@ -41,3 +41,91 @@ BigQuery (Analytics Layer)
 ↓
 Dashboard (Looker Studio)
 ```
+
+
+---
+
+## ⚙️ Workflow Orchestration (Kestra)
+
+The pipeline includes the following automated steps:
+
+1. Load raw flight data into Snowflake (COPY INTO)
+2. Run dbt transformations (staging + marts)
+3. Export fact and dimension tables from Snowflake to GCS
+4. Load processed data into BigQuery
+
+This ensures a fully automated end-to-end data pipeline.
+
+---
+
+## 🏗️ Data Warehouse Design
+
+Snowflake is used as the central data warehouse with a multi-layer architecture:
+
+### RAW Layer
+- Raw ingestion from GCS
+
+### STAGING Layer (dbt)
+- Cleaned and standardized data
+
+### MART Layer
+- Analytics-ready tables:
+  - `FCT_FLIGHT_DELAYS`
+  - `DIM_DELAY_CAUSES`
+
+### Optimization
+Tables are optimized using clustering:
+
+- Fact table: clustered by `flight_date`, `airport`
+- Dimension table: clustered by `delay_cause`
+
+---
+
+## 🔧 Transformations (dbt)
+
+All transformations are implemented using **dbt**, including:
+
+- Data cleaning
+- Joins between flight and delay data
+- Aggregation of delay metrics
+- Creation of fact and dimension tables
+
+dbt ensures modular, version-controlled SQL transformations.
+
+---
+
+## 📊 Dashboard
+
+A Looker Studio dashboard is built on top of BigQuery with:
+
+### Key Metrics:
+- Total delay minutes by airline
+- Top delay causes
+- Delay trends over time
+
+### Dashboard Features:
+- Interactive filters (airline, airport, date)
+- Comparative analysis across carriers
+
+---
+
+## ☁️ Data Ingestion
+
+Batch ingestion pipeline:
+- Flight data is stored in GCS
+- Loaded into Snowflake using scheduled Kestra workflows
+
+---
+
+## 🔁 Reproducibility
+
+### Prerequisites
+- Snowflake account
+- Google Cloud project
+- Kestra instance
+
+### Setup Steps
+
+1. Clone repository
+```bash
+git clone https://github.com/JC-CC-UNI/DE_Zoomcamp_FlightsDelay.git
