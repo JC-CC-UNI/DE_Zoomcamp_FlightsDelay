@@ -129,3 +129,37 @@ Batch ingestion pipeline:
 1. Clone repository
 ```bash
 git clone https://github.com/JC-CC-UNI/DE_Zoomcamp_FlightsDelay.git
+```
+2. Configure Kestra KV store:
+SNOWFLAKE_PRIVATE_KEY
+GCP_SERVICE_ACCOUNT_JSON_B64
+
+3. Run Kestra flow:
+```
+flights_pipeline.yml
+```
+
+4. Verify outputs:
+Snowflake MART tables
+GCS exported files
+BigQuery dataset: flights_dataset
+
+
+## 🚀 Technologies Used
+Snowflake
+Google Cloud Storage
+BigQuery
+dbt
+Kestra
+Python
+SQL
+
+## 📌 Future Improvements
+Add streaming ingestion (Kafka or Pub/Sub)
+Implement CI/CD for dbt models
+Add data quality tests (dbt tests or Great Expectations)
+Expand dashboard with predictive delay modeling
+
+## 👤 Author
+
+JC - Data Engineering Project (Zoomcamp Capstone)
