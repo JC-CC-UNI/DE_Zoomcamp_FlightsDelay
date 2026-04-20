@@ -109,7 +109,8 @@ A Looker Studio dashboard is built on top of BigQuery with:
 
 Interactive dashboard built with Looker Studio:
 
-👉 [https://lookerstudio.google.com/reporting/XXXX-XXXX-XXXX](https://datastudio.google.com/reporting/3ca21ab7-60e1-44a5-89b3-06a8134379eb)
+👉 [https://lookerstudio.google.com/reporting/FlightsDelayDashboard](https://datastudio.google.com/reporting/3ca21ab7-60e1-44a5-89b3-06a8134379eb)
+
 ---
 
 ## ☁️ Data Ingestion
