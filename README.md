@@ -28,14 +28,16 @@ All infrastructure and workflows are defined as code using Kestra YAML pipelines
 ---
 
 ## 🔄 Architecture Diagram
-graph LR
-    GCS[GCS Bucket\nRaw Files] -->|COPY INTO| SNOW[Snowflake\nRAW / STAGING]
-    SNOW -->|dbt transformation| DBT[dbt Transformation]
-    DBT -->|Export| GCS2[GCS Bucket\nProcessed]
-    GCS2 -->|BigQuery Load| BQ[BigQuery\nAnalytics Layer]
-    BQ -->|Connect| LS[Looker Studio\nDashboard]
-    
-    style GCS fill:#f9f,stroke:#333
-    style SNOW fill:#ccf,stroke:#333
-    style BQ fill:#f9c,stroke:#333
-    style LS fill:#9cf,stroke:#333
+```
+GCS (Raw Files)
+↓
+Snowflake (RAW → STAGING → MART)
+↓
+dbt Transformations
+↓
+GCS (Exported Tables)
+↓
+BigQuery (Analytics Layer)
+↓
+Dashboard (Looker Studio)
+```
