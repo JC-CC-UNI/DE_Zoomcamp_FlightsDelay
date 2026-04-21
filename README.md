@@ -87,9 +87,9 @@ A derived flight_date column (from year and month) is used to simulate partition
 
 👉 Benefits:
 
-Reduced data scanned (better pruning)
-Faster query execution
-Lower compute cost
+- Reduced data scanned (better pruning)
+- Faster query execution
+- Lower compute cost
 
 ---
 
