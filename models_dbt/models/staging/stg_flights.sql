@@ -1,3 +1,7 @@
+{{ config(
+    materialized = 'view'
+) }}
+
 SELECT
     year,
     month,

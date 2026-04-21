@@ -74,10 +74,22 @@ Snowflake is used as the central data warehouse with a multi-layer architecture:
   - `DIM_DELAY_CAUSES`
 
 ### Optimization
-Tables are optimized using clustering:
 
-- Fact table: clustered by `flight_date`, `airport`
-- Dimension table: clustered by `delay_cause`
+The data warehouse tables are optimized using clustering to improve query performance and reduce scan costs.
+
+Fact table (fct_flight_delays)
+The table is clustered by flight_date and airport, which are commonly used in analytical queries.
+
+flight_date: enables efficient time-based filtering (e.g., monthly or yearly trends)
+airport: supports high-cardinality filtering for airport-level analysis
+
+A derived flight_date column (from year and month) is used to simulate partitioning behavior and improve pruning efficiency.
+
+👉 Benefits:
+
+Reduced data scanned (better pruning)
+Faster query execution
+Lower compute cost
 
 ---
 

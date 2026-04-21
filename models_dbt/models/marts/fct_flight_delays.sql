@@ -1,6 +1,12 @@
+{{ config(
+    materialized = 'table',
+    cluster_by = ['flight_date', 'airport']
+) }}
+
 SELECT
     year,
     month,
+    DATE_FROM_PARTS(year, month, 1) AS flight_date,
     airport,
     carrier_name,
     SUM(arr_flights) AS total_flights,
@@ -11,4 +17,4 @@ SELECT
     SUM(nas_delay) AS nas_delay,
     SUM(late_aircraft_delay) AS late_aircraft_delay
 FROM {{ ref('stg_flights') }}
-GROUP BY 1,2,3,4
+GROUP BY 1,2,3,4,5
