@@ -5,6 +5,61 @@ description: Flights pipeline (Snowflake COPY + dbt optimized)
 
 tasks:
 
+# 0️⃣ DOWNLOAD FROM KAGGLE + UPLOAD TO GCS
+- id: ingest_kaggle_to_gcs
+  type: io.kestra.plugin.scripts.python.Commands
+
+  containerImage: python:3.11-slim
+
+  commands:
+    - pip install kaggle google-cloud-storage
+
+    # ✅ NEW AUTH METHOD
+    - export KAGGLE_API_TOKEN="{{ kv('KAGGLE_API_TOKEN') }}"
+
+    # write GCP credentials
+    - mkdir -p /workspace/keys
+    - |
+      echo "{{ kv('GCP_SERVICE_ACCOUNT_JSON_B64') }}" | base64 -d > /workspace/keys/gcp-key.json
+
+    # create ingestion script
+    - |
+      cat <<EOF > ingest.py
+      import os
+      import subprocess
+      from pathlib import Path
+      from google.cloud import storage
+
+      os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/workspace/keys/gcp-key.json"
+
+      LOCAL_DIR = Path("/workspace/data")
+      BUCKET_NAME = "de-zoomcamp-flightsdelay-data"
+      GCS_PREFIX = "flights/raw"
+
+      LOCAL_DIR.mkdir(parents=True, exist_ok=True)
+
+      print("Downloading dataset from Kaggle...")
+      subprocess.run([
+          "kaggle", "datasets", "download",
+          "-d", "daryaheyko/airline-on-time-statistics-and-delay-causes-bts",
+          "-p", str(LOCAL_DIR),
+          "--unzip"
+      ], check=True)
+
+      print("Uploading files to GCS...")
+      client = storage.Client()
+      bucket = client.bucket(BUCKET_NAME)
+
+      for file in LOCAL_DIR.glob("*.csv"):
+          blob = bucket.blob(f"{GCS_PREFIX}/{file.name}")
+          blob.upload_from_filename(str(file))
+          print(f"Uploaded {file.name}")
+
+      print("Ingestion completed!")
+      EOF
+
+    - python ingest.py
+    
 # 1️⃣ LOAD RAW DATA INTO SNOWFLAKE
 - id: snowflake_copy_raw
   type: io.kestra.plugin.jdbc.snowflake.Query
