@@ -430,7 +430,101 @@ TF_VAR_rsa_public_key
 
 ---
 
-### 7. Provision Infrastructure (Terraform)
+### 7. Create .env
+
+Create a local environment file from the template:
+
+```bash
+cp .env.example .env
+```
+Edit the file and populate all required values.
+
+Retrieve Snowflake Values
+
+Login to Snowflake and execute:
+
+Organization name:
+
+```bash
+SELECT CURRENT_ORGANIZATION_NAME();
+```
+
+Used for:
+```text
+TF_VAR_snowflake_organization
+```
+
+Account name:
+
+```bash
+SELECT CURRENT_ACCOUNT_NAME();
+```
+
+Used for:
+```text
+TF_VAR_snowflake_account_name
+```
+
+Current user:
+
+```bash
+SELECT CURRENT_USER();
+```
+
+Used for:
+```text
+TF_VAR_snowflake_user
+```
+
+Account locator:
+
+```bash
+SELECT CURRENT_ACCOUNT();
+```
+
+Example output:
+```text
+UB53849
+```
+You can obtain the full account identifier from:
+```text
+Admin → Accounts
+```
+
+or from your Snowflake URL.
+
+Example:
+```text
+ub53849.sa-east-1.aws
+```
+Used for:
+```text
+DBT_SF_ACCOUNT
+```
+
+---
+
+### 8. Load Environment Variables
+Load all variables from the .env file into your current shell session:
+
+```text
+set -a
+source .env
+set +a
+```
+Verify that variables were loaded correctly:
+
+```text
+echo $TF_VAR_project_id
+echo $TF_VAR_bucket_name
+echo $TF_VAR_snowflake_account_name
+```
+Expected output:
+```text
+de-zoomcamp-flightsdelay-dev
+```
+
+### 9. Provision Infrastructure (Terraform)
 
 Provision cloud resources.
 
@@ -464,7 +558,7 @@ This creates:
 
 ---
 
-### 8. Generate Pipeline Service Account Key
+### 10. Generate Pipeline Service Account Key
 
 Generate the runtime service account key:
 
@@ -482,7 +576,7 @@ mv ~/flights-pipeline-sa-key.json keys/flights-pipeline-sa-key.json
 
 ---
 
-### 10. Start Kestra Locally (Docker Compose)
+### 11. Start Kestra Locally (Docker Compose)
 
 This project runs Kestra locally using Docker Compose.
 
@@ -517,7 +611,7 @@ Password: Admin1234!
 
 ---
 
-### 9. Configure Kestra KV Store
+### 12. Configure Kestra KV Store
 
 Create the following KV variables in Kestra:
 
@@ -541,7 +635,7 @@ GCP_SERVICE_ACCOUNT_JSON_B64
 
 ---
 
-### 10. Configure Environment Variables
+### 13. Configure Environment Variables
 
 Create `.env` file:
 
@@ -553,7 +647,7 @@ Populate required variables.
 
 ---
 
-### 11. Deploy Kestra Flow
+### 14. Deploy Kestra Flow
 
 Open Kestra UI.
 
@@ -567,7 +661,7 @@ Save the flow.
 
 ---
 
-### 12. Execute Pipeline
+### 15. Execute Pipeline
 
 Run the Kestra flow manually.
 
@@ -595,7 +689,7 @@ Looker Studio
 
 ---
 
-### 13. Verify Outputs
+### 16. Verify Outputs
 
 Successful execution should generate:
 
