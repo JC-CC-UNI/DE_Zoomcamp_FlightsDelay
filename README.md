@@ -538,6 +538,13 @@ terraform plan
 terraform apply
 ```
 
+Resources created:
+
+- GCS bucket
+- BigQuery dataset
+- Pipeline service account
+- IAM permissions
+
 #### Snowflake Infrastructure
 
 ```bash
@@ -548,24 +555,33 @@ terraform plan
 terraform apply
 ```
 
-This creates:
+Resources created:
 
-- GCS buckets
-- BigQuery datasets
-- Snowflake integrations
-- IAM resources
-- Pipeline service account
+- Database
+- Schemas
+- Warehouse
+- File formats
+- Stages
+- Storage integrations
+- Service user for dbt/Kestra
 
 ---
 
 ### 10. Generate Pipeline Service Account Key
+
+Authenticate using Terraform SA:
+
+```bash
+gcloud auth activate-service-account \
+--key-file=$GOOGLE_APPLICATION_CREDENTIALS
+```
 
 Generate the runtime service account key:
 
 ```bash
 gcloud iam service-accounts keys create \
 ~/flights-pipeline-sa-key.json \
---iam-account=flights-pipeline-sa@<project-id>.iam.gserviceaccount.com
+--iam-account=flights-pipeline-sa@${TF_VAR_project_id}.iam.gserviceaccount.com
 ```
 
 Move the key into:
@@ -633,37 +649,71 @@ Copy the output into:
 GCP_SERVICE_ACCOUNT_JSON_B64
 ```
 
----
-
-### 13. Configure Environment Variables
-
-Create `.env` file:
+Generate SNOWFLAKE_PRIVATE_KEY:
 
 ```bash
-cp .env.example .env
+cat keys/rsa_key.p8
 ```
 
-Populate required variables.
+Copy the entire file content including:
+
+```text
+-----BEGIN PRIVATE KEY-----
+...
+-----END PRIVATE KEY-----
+```
+
+Store it as:
+```text
+SNOWFLAKE_PRIVATE_KEY
+```
+
+Generate KAGGLE_API_TOKEN:
+
+Login to Kaggle:
+
+```text
+Account Settings → API Tokens→ Generate New Token
+```
+
+Copy the entire content:
+
+```text
+KGAT_30...
+```
+
+Store it as:
+```text
+KAGGLE_API_TOKEN
+```
 
 ---
 
-### 14. Deploy Kestra Flow
+### 13. Deploy Kestra Flow
 
 Open Kestra UI.
 
-Create a new flow and paste:
+Navigate to:
 
+```text
+Flows → Create Flow
+```
+Open the file:
 ```text
 kestra/flows/flights_pipeline.yml
 ```
 
+Copy and paste the content into the Kestra editor.
+
 Save the flow.
+
+Verify the flow appears successfully in the flow list.
 
 ---
 
-### 15. Execute Pipeline
+### 14. Execute Pipeline
 
-Run the Kestra flow manually.
+Run the flow manually from the Kestra UI.
 
 Pipeline stages:
 
@@ -687,9 +737,11 @@ BigQuery
 Looker Studio
 ```
 
+All tasks should complete successfully.
+
 ---
 
-### 16. Verify Outputs
+### 15. Verify Outputs
 
 Successful execution should generate:
 
@@ -699,16 +751,21 @@ Successful execution should generate:
 - `MART.FCT_FLIGHTS_DELAY`
 - `MART.DIM_DELAY_CAUSES`
 
-#### GCS
-- Raw files
-- Processed exports
+#### Google Cloud Storage
+- flights/raw/flights_delay/
+- flights/mart/fct_flights_delay/
+- flights/mart/dim_delay_causes/
 
 #### BigQuery
 Dataset:
 ```text
 flights_dataset
 ```
-
+Tables:
+```text
+fct_flights_delay
+dim_delay_causes
+```
 #### Dashboard
 Looker Studio dashboard populated with data.
 
